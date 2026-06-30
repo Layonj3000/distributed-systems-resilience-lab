@@ -20,3 +20,14 @@ Avaliar a resiliência de uma aplicação distribuída utilizando Kubernetes e C
 * Chaos Mesh
 * Prometheus
 * Grafana
+
+## Serviços
+
+### Order Service
+
+Endpoints disponíveis:
+
+* GET /health
+* GET /orders
+* GET /orders/{id}
+* POST /orders
