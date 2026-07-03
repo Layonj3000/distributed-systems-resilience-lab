@@ -1,3 +1,8 @@
+import pybreaker
+import requests
+
+from tenacity import RetryError
+
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -10,22 +15,42 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/")
 def home(request: Request):
-    orders = get_orders()
+    service_unavailable = False
+
+    try:
+        orders = get_orders()
+
+    except (
+        pybreaker.CircuitBreakerError,
+        requests.RequestException,
+        RetryError,
+    ):
+        orders = []
+        service_unavailable = True
 
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
-            "orders": orders
-        }
+            "orders": orders,
+            "service_unavailable": service_unavailable,
+        },
     )
 
 
 @app.post("/create")
 def create_order_route(description: str = Form(...)):
-    create_order(description)
+    try:
+        create_order(description)
+
+    except (
+        pybreaker.CircuitBreakerError,
+        requests.RequestException,
+        RetryError,
+    ):
+        pass
 
     return RedirectResponse(
         url="/",
-        status_code=303
+        status_code=303,
     )

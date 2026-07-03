@@ -7,6 +7,12 @@
 
 <h1>Order Management</h1>
 
+{% if service_unavailable %}
+<p style="color:red;">
+    Order service temporarily unavailable.
+</p>
+{% endif %}
+
 <form action="/create" method="post">
     <input
         type="text"
