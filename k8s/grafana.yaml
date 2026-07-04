@@ -1,0 +1,194 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: grafana-datasources
+
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: grafana-dashboard-provider
+
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards
+
+---
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: grafana-dashboards
+
+data:
+  resilience.json: |
+    {
+      "uid": "resilience",
+      "title": "Resilience Lab",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "5s",
+      "time": { "from": "now-15m", "to": "now" },
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Latencia p95 (order-service)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"order-service\"}[1m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Taxa de requisicoes (req/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_requests_total{job=\"order-service\"}[1m]))",
+              "legendFormat": "total"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Taxa de erros 5xx (req/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_requests_total{job=\"order-service\", status=~\"5..\"}[1m]))",
+              "legendFormat": "5xx"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "CPU por pod (cores)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{pod=~\"order-service.*\", container=\"order-service\"}[1m]))",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Replicas ativas (order-service)",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(up{job=\"order-service\"} == 1)",
+              "legendFormat": "replicas"
+            }
+          ]
+        }
+      ]
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: grafana
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: grafana
+
+  template:
+    metadata:
+      labels:
+        app: grafana
+
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.1.0
+
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Admin
+
+          ports:
+            - containerPort: 3000
+
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: grafana
+
+spec:
+  type: NodePort
+
+  selector:
+    app: grafana
+
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30030
