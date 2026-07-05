@@ -1,11 +1,12 @@
-from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
+"""Modelos ORM do SQLAlchemy."""
 
-from database import Base
+from sqlalchemy import Column, Integer, String
+
+from database import Base  # pylint: disable=import-error
 
 
-class Order(Base):
+class Order(Base):  # pylint: disable=too-few-public-methods
+    """Modelo de pedido no banco de dados."""
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
