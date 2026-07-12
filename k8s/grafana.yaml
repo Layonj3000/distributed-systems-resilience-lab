@@ -59,7 +59,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"order-service\"}[1m])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_highr_seconds_bucket{job=\"order-service\"}[30s])) by (le))",
               "legendFormat": "p95"
             }
           ]
@@ -79,21 +79,8 @@ data:
         },
         {
           "type": "timeseries",
-          "title": "Taxa de erros 5xx (req/s)",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "targets": [
-            {
-              "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "sum(rate(http_requests_total{job=\"order-service\", status=~\"5..\"}[1m]))",
-              "legendFormat": "5xx"
-            }
-          ]
-        },
-        {
-          "type": "timeseries",
           "title": "CPU por pod (cores)",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
             {
@@ -104,14 +91,29 @@ data:
           ]
         },
         {
-          "type": "stat",
+          "type": "timeseries",
           "title": "Replicas ativas (order-service)",
           "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "stepAfter",
+                "lineWidth": 2,
+                "fillOpacity": 20,
+                "pointSize": 6,
+                "showPoints": "always"
+              }
+            }
+          },
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "count(up{job=\"order-service\"} == 1)",
+              "expr": "count(up{job=\"order-service\"} == 1) or vector(0)",
               "legendFormat": "replicas"
             }
           ]
