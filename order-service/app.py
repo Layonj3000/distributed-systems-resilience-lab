@@ -4,7 +4,7 @@ import time
 
 from fastapi import FastAPI, Depends, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator  # pylint: disable=import-error
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from database import Base, SESSION_LOCAL, engine  # pylint: disable=import-error
@@ -49,11 +49,33 @@ def health():
 
 @app.post("/orders", response_model=OrderResponse, status_code=201)
 def create_order(order: OrderCreate, db: Session = Depends(get_db)):
-    """Cria e persiste um novo pedido."""
-    new_order = Order(description=order.description)
+    """Cria e persiste um novo pedido de forma idempotente."""
+    existing = (
+        db.query(Order)
+        .filter(Order.idempotency_key == order.idempotency_key)
+        .first()
+    )
+
+    if existing:
+        return existing
+
+    new_order = Order(
+        description=order.description,
+        idempotency_key=order.idempotency_key,
+    )
 
     db.add(new_order)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return (
+            db.query(Order)
+            .filter(Order.idempotency_key == order.idempotency_key)
+            .first()
+        )
+
     db.refresh(new_order)
 
     return new_order
