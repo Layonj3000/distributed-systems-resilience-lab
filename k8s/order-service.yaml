@@ -17,6 +17,12 @@ spec:
         app: order-service
 
     spec:
+      initContainers:
+      - name: slow-start
+        image: busybox:1.36
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c", "echo aquecendo...; sleep 25"]
+
       containers:
       - name: order-service
 

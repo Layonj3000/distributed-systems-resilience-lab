@@ -14,5 +14,3 @@ spec:
       - default
     labelSelectors:
       app: order-service
-
-  gracePeriod: 0
